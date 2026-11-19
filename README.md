@@ -80,18 +80,18 @@ The project follows a modular architecture in which each subsystem is responsibl
 
 ## Pick-and-Place Workflow
 
-The manipulation process is organised into ten sequential stages:
+The manipulation process is implemented as a scripted 10-stage execution pipeline:
 
-1. **Initialisation:** Establish the robot connection and initialise the gripper.
-2. **Home Position:** Move the manipulator to its predefined starting configuration.
-3. **Target Definition:** Establish the pick and place positions.
-4. **Pre-Pick Approach:** Move the end effector to a clearance position above the object.
-5. **Pick Descent:** Move towards the object using a controlled descent.
-6. **Grasp:** Actuate the gripper to grasp the object.
-7. **Lift:** Raise the object to a safe clearance height.
-8. **Transfer:** Move the object towards the destination.
-9. **Place and Release:** Lower the object, release it and retract the arm.
-10. **Return Home:** Bring the manipulator back to its resting configuration.
+1. **Initialisation:** Establish robot interface (or fallback to virtual mode) and initialise gripper state.
+2. **Home Position:** Move the manipulator to its predefined starting joint configuration.
+3. **Target Definition:** Define pick and place coordinates.
+4. **Pre-Pick Approach:** Move the end effector to a clearance waypoint above the object.
+5. **Pick Descent:** Execute controlled descent towards the target object.
+6. **Grasp:** Trigger gripper close actuation (in virtual mode, proximity threshold is 5 cm).
+7. **Lift:** Raise the end effector back to clearance height.
+8. **Transfer:** Transfer the payload towards the destination pre-place waypoint.
+9. **Place and Release:** Lower the arm, trigger gripper open, and retract vertically.
+10. **Return Home:** Return the manipulator to its resting home configuration.
 
 ## Technology Stack
 
@@ -102,7 +102,7 @@ The manipulation process is organised into ten sequential stages:
 - **Symbolic Mathematics:** SymPy
 - **Robotics Simulation:** CoppeliaSim
 - **Communication:** ZeroMQ Remote API
-- **Testing:** Pytest
+- **Testing & Validation:** Python standalone verification modules (unit test suite not committed)
 - **Version Control:** Git and GitHub
 
 ## Repository Structure
@@ -211,24 +211,49 @@ Run the trajectory visualisation:
 python3 -m src.live_demo_visualizer --planner quintic
 ```
 
-**Note:** The pick-and-place and visualisation commands can operate in standalone mode when CoppeliaSim is unavailable. A successful standalone run does not establish that live simulator communication has been verified.
+**Note on Operational Modes:** The pick-and-place and visualisation commands operate in standalone virtual mode when CoppeliaSim is unavailable. This mode utilizes a simplified kinematic representation (5 cm proximity grasp threshold) rather than a dynamic physics engine. Live CoppeliaSim integration has not been independently verified in this QA audit.
 
-## Experimental Results
+## Experimental Results & QA Validation Status
 
-The repository includes experimental outputs for evaluating the implemented kinematics and trajectory-planning approaches.
+The repository includes experimental outputs evaluating kinematics and trajectory-planning implementations.
 
-Available result files:
+### Verified Numerical Results (from CSV files)
 
-- `results/metrics.csv` — recorded performance metrics.
-- `results/comparison.csv` — comparative trajectory data.
-- `results/plots/` — generated visualisations, including:
-  - D-H kinematic frames
-  - Joint trajectory profiles
-  - Cartesian path comparisons
-  - Inverse kinematics position and orientation errors
-  - Trajectory performance comparisons
+- **Inverse Kinematics (`results/metrics.csv`):**
+  - Total trials evaluated: 100
+  - Successful convergence: 81 trials (81.0% convergence rate)
+  - Unconverged trials: 19 trials (19.0%)
+  - Mean Cartesian position error (successful trials): **0.0462 mm** ($46.2\ \mu\text{m}$)
+  - Maximum Cartesian position error (successful trials): **0.0996 mm** ($99.6\ \mu\text{m}$)
+  - Mean solver computation time (all 100 trials): **9.67 ms** (~5.57 ms among successful trials)
+  - Mean DLS iterations (successful trials): **~26.1 iterations**
 
-These outputs support the analysis of trajectory smoothness, positioning accuracy, computational performance and motion behaviour.
+- **Trajectory Benchmark (`results/comparison.csv`):**
+  - **Trapezoidal (LSPB):** Duration 1.53 s, $C^1$ continuity (continuous position and velocity; acceleration has step discontinuities at blending boundaries), computed jerk metric: **414.742**
+  - **Cartesian SLERP:** Duration 3.00 s, task-space linear $C^1$, computed jerk metric: **48.6895**
+  - **Quintic Polynomial:** Duration 3.00 s, mathematical $C^2$ continuity, computed jerk metric: **7.913**
+  - **Cubic Polynomial:** Duration 3.00 s, $C^1$ continuity, lowest computed jerk metric: **1.545**
+  - **Jerk Metric Reduction:** The quintic polynomial reduces the computed jerk metric by **98.1%** compared with trapezoidal LSPB. Note that Cubic exhibits the lowest computed jerk metric, and these figures reflect mathematical trajectory derivatives rather than measured physical vibration.
+
+### Verification Levels
+
+| Subsystem / Module | Source Inspection | Syntax Validation | Standalone Execution | Functional / Integration Testing | Status Summary |
+|---|---|---|---|---|---|
+| D-H Parameters (`src.dh_parameters`) | PASSED | PASSED | VERIFIED | VERIFIED (Kinematic) | Mathematically verified standard D-H table |
+| Forward Kinematics (`src.forward_kinematics`) | PASSED | PASSED | VERIFIED | VERIFIED (Kinematic) | Closed-form transform and Jacobian calculations verified |
+| Inverse Kinematics (`src.inverse_kinematics`) | PASSED | PASSED | VERIFIED | VERIFIED (Kinematic) | 81% convergence on 100 random trials; sub-0.1 mm accuracy on success |
+| Trajectory Planner (`src.trajectory_planner`) | PASSED | PASSED | VERIFIED | VERIFIED (Kinematic) | Cubic ($C^1$), Quintic ($C^2$), LSPB ($C^1$), SLERP verified |
+| Motion Controller (`src.motion_controller`) | PASSED | PASSED | VERIFIED | NOT VERIFIED (Hardware) | Configured 50 Hz waypoint interval (20 ms; real-time execution not guaranteed); no tracking-error threshold check |
+| Gripper Controller (`src.gripper_controller`) | PASSED | PASSED | VERIFIED (Virtual) | NOT VERIFIED (Physics) | Returns True on open/close; no force/contact feedback |
+| Pick-and-Place (`src.pick_and_place`) | PASSED | PASSED | VERIFIED (Virtual) | NOT VERIFIED (Physics) | Scripted 10-stage execution pipeline verified in virtual mode |
+| Robot Connection (`src.robot_connection`) | PASSED | PASSED | VERIFIED (Fallback) | NOT VERIFIED (Live Sim) | Automatic fallback verified; live CoppeliaSim connection unverified |
+| Automated Test Suite (`tests/`) | N/A | N/A | NOT RUN | NOT RUN | No committed `tests/` directory; `pytest` collected 0 items |
+
+### Available Result Artifacts
+
+- `results/metrics.csv` — 100-trial empirical IK data
+- `results/comparison.csv` — comparative trajectory data
+- `results/plots/` — publication plots (D-H frames, joint profiles, Cartesian paths, IK errors, trajectory comparisons)
 
 ## Documentation
 

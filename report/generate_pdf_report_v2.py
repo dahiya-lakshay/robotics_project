@@ -259,13 +259,14 @@ def build_pdf_report(filename="report/project_report.pdf"):
         "and dynamically smooth motion between arbitrary workspace coordinates. This project develops a complete six-degree-of-freedom "
         "(6-DOF) robotic pick-and-place manipulation system using the Universal Robots UR5 manipulator in the CoppeliaSim simulation "
         "environment. An independent pure-Python kinematics engine establishes standard Denavit–Hartenberg (D-H) modeling, composite forward "
-        "kinematics, and 6x6 geometric Jacobians. To guarantee convergence across singular configurations, a dual-mode inverse kinematics "
+        "kinematics, and 6x6 geometric Jacobians. To address singular configurations, a dual-mode inverse kinematics "
         "architecture couples closed-form analytical Pieper decoupling with an adaptive Damped Least Squares (DLS / Levenberg-Marquardt) "
         "numerical solver. Trajectory generation synthesizes quintic ($C^2$) and cubic ($C^1$) polynomials alongside trapezoidal velocity profiles, "
-        "communicating synchronously with CoppeliaSim over the ZeroMQ Remote API at 50 Hz. Across 100 empirical trials, the system achieved "
-        "sub-millimeter positioning accuracy ($0.0462\\text{ mm}$ mean error), fast numerical convergence ($9.67\\text{ ms}$ solve time), "
-        "and 100% pick-and-place success with zero collisions. The novelty of the work is an adaptive manipulability-scheduled DLS solver and a "
-        "quintic trajectory formulation that reduces mechanical jerk by 98.1% compared with trapezoidal velocity profiles.",
+        "designed for communication with CoppeliaSim over the ZeroMQ Remote API at a configured 50 Hz waypoint/control interval (20 ms; real-time execution not guaranteed). Across 100 empirical IK trials, "
+        "the solver achieved an 81.0% convergence rate, sub-millimeter positioning accuracy ($0.0462\\text{ mm}$ mean error among successful trials, "
+        "maximum $0.0996\\text{ mm}$), mean solve time of $9.67\\text{ ms}$ across all trials (~$5.57\\text{ ms}$ on successful trials), and "
+        "executes a scripted 10-stage pick-and-place manipulation pipeline. The quintic trajectory formulation enforces mathematical $C^2$ continuity "
+        "and reduces the computed jerk metric by 98.1% compared with trapezoidal LSPB profiles.",
         body_style
     ))
     story.append(Spacer(1, 0.4 * cm))
@@ -386,7 +387,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
         "In contrast to fixed automation machines, multi-axis serial robotic manipulators offer software-reconfigurable spatial dexterity, "
         "enabling a single physical robot to execute multiple high-precision tasks across dynamic operating environments [2]. "
         "This project presents an autonomous pick-and-place manipulation system that guides a six-degree-of-freedom robotic arm "
-        "along smooth, kinematically consistent trajectories while eliminating joint jerk and mechanical vibration.",
+        "along smooth, kinematically consistent trajectories with continuous acceleration profiles.",
         body_style
     ))
     story.append(Paragraph(
@@ -407,10 +408,10 @@ def build_pdf_report(filename="report/project_report.pdf"):
         body_style
     ))
     story.append(Paragraph(
-        "In physical manufacturing, motion smoothness directly governs robot longevity and product quality. Traditional trapezoidal velocity profiles "
-        "suffer from discontinuous step changes in acceleration, introducing extreme mechanical jerk that excites structural resonances, causes "
-        "gearbox wear in harmonic drives, and can spill liquid payloads in pharmaceutical settings. Consequently, higher-order polynomial "
-        "trajectories satisfying continuous acceleration ($C^2$ continuity) are imperative for reliable real-world deployment.",
+        "In physical manufacturing, motion smoothness directly influences joint motion quality. Trapezoidal LSPB profiles "
+        "maintain continuous position and velocity ($C^1$ continuity), but acceleration has step discontinuities at blending boundaries, "
+        "producing elevated computed jerk metrics. Consequently, higher-order polynomial trajectories satisfying continuous acceleration ($C^2$ continuity) "
+        "are formulated to provide smooth joint transitions without acceleration discontinuities.",
         body_style
     ))
     story.append(Paragraph(
@@ -428,7 +429,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
     story.append(Paragraph(
         "<b>Problem statement.</b> Design and implement an automated six-degree-of-freedom robotic manipulation system that calculates "
         "the exact Denavit–Hartenberg forward and inverse kinematics for a Universal Robots UR5 arm, plans smooth jerk-minimized trajectories, "
-        "and executes a complete collision-free pick-and-place sequence in the CoppeliaSim simulation environment, transferring a dynamic manipuland "
+        "and executes a scripted 10-stage pick-and-place sequence, transferring a dynamic manipuland "
         "from an initial target coordinate $P_{\\text{pick}}$ to a destination coordinate $P_{\\text{place}}$ with sub-millimeter precision in minimum time.",
         body_style
     ))
@@ -438,8 +439,8 @@ def build_pdf_report(filename="report/project_report.pdf"):
     story.append(Paragraph("2.  Implement an independent pure-Python forward kinematics engine calculating individual transformation matrices $T_{i-1}^i$, the composite end-effector transformation $T_0^6$, Cartesian position vectors, and ZYX Roll-Pitch-Yaw Euler angles.", bullet_style))
     story.append(Paragraph("3.  Develop a robust dual-mode inverse kinematics solver combining closed-form Pieper geometric decoupling with an adaptive Damped Least Squares (DLS / Levenberg-Marquardt) numerical optimizer to guarantee convergence near kinematic singularities.", bullet_style))
     story.append(Paragraph("4.  Design and compare multi-strategy trajectory planning algorithms (Cubic $C^1$, Quintic $C^2$, Trapezoidal LSPB, and Cartesian straight-line SLERP) to minimize joint jerk and mechanical stress.", bullet_style))
-    story.append(Paragraph("5.  Establish a high-speed synchronous Python-to-CoppeliaSim communication bridge via the ZeroMQ Remote API operating at 50 Hz control loops.", bullet_style))
-    story.append(Paragraph("6.  Execute an autonomous 10-stage pick-and-place mission achieving 100% grasp success across repeated trials with mean positioning accuracy under $0.1\\text{ mm}$ and zero collisions.", bullet_style))
+    story.append(Paragraph("5.  Establish a Python-to-CoppeliaSim communication bridge via the ZeroMQ Remote API operating at a configured 50 Hz waypoint/control interval (20 ms; real-time execution not guaranteed).", bullet_style))
+    story.append(Paragraph("6.  Execute a scripted 10-stage pick-and-place manipulation pipeline demonstrating sequential trajectory waypoint dispatch, virtual gripper sequencing, and sub-millimeter kinematic accuracy.", bullet_style))
     story.append(Spacer(1, 0.2 * cm))
     story.append(Paragraph("<b>Assumptions and Limits.</b>", h2_style))
     story.append(Paragraph("• <b>Rigid-Body Mechanics:</b> Manipulator links and joints are assumed rigid, neglecting elasticity and gearbox backlash.", bullet_style))
@@ -478,9 +479,9 @@ def build_pdf_report(filename="report/project_report.pdf"):
     ))
     story.append(Paragraph(
         "In trajectory planning, industrial robots traditionally relied on trapezoidal velocity profiles (Linear Segments with Parabolic Blends - LSPB) [2]. "
-        "While computationally simple, LSPB introduces step discontinuities in joint acceleration ($C^0$ continuity), causing infinite jerk spikes that "
-        "excite structural resonances. Astrom and Murray [6] along with Siciliano and Khatib [7] emphasized higher-order polynomials—specifically "
-        "quintic polynomials enforcing $C^2$ continuity—to ensure continuous jerk profiles and eliminate mechanical shock. Rohmer et al. [7] developed "
+        "While computationally simple, trapezoidal LSPB maintains continuous position and velocity ($C^1$ continuity), but acceleration has step discontinuities "
+        "at blending boundaries, yielding elevated computed jerk metrics. Astrom and Murray [6] along with Siciliano and Khatib [7] emphasized higher-order polynomials—specifically "
+        "quintic polynomials enforcing mathematical $C^2$ continuity—to ensure continuous acceleration profiles without analytical step discontinuities. Rohmer et al. [7] developed "
         "CoppeliaSim (formerly V-REP), providing realistic rigid-body physics simulation. The recent Python ZeroMQ Remote API has modernized co-simulation, "
         "enabling deterministic synchronous stepping [7]. Table 1 compares existing approaches against our project methodology.",
         body_style
@@ -492,7 +493,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
         ["Approach", "Strength", "Limitation"],
         ["Pure Analytical IK (Pieper) [4], [8]", "Fast computation, closed-form", "Fails or diverges near kinematic singularities"],
         ["Pure Numerical Jacobian IK [2], [10]", "Applicable to arbitrary geometries", "Sensitive to initial seed, prone to local minima"],
-        ["Trapezoidal LSPB Trajectories [2]", "Computationally simple, time-optimal", "Acceleration steps cause high jerk (mechanical shock)"],
+        ["Trapezoidal LSPB Trajectories [2]", "Computationally simple, time-optimal", "Acceleration steps cause high computed jerk"],
         ["Hybrid Analytical/DLS with Quintic Planning (This Work)", "Singularity-robust, sub-50 um accuracy, C^2 continuous jerk", "Requires dynamic damping tuning and multi-step solver"]
     ]
     t3 = Table(t3_data, colWidths=[5.0 * cm, 4.5 * cm, 5.5 * cm])
@@ -523,7 +524,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
         "Unlike standard academic projects that rely on CoppeliaSim's built-in inverse kinematics plugin (treating the simulator as a black box), "
         "we engineered an independent, pure-Python D-H kinematics engine from first principles. All homogeneous matrix multiplications, "
         "analytical/numerical inverse kinematics, geometric Jacobians, and trajectory interpolations execute entirely within external Python code. "
-        "CoppeliaSim is utilized strictly as an actuated rigid-body visualizer in synchronous lockstep at 50 Hz.",
+        "CoppeliaSim is utilized strictly as an actuated rigid-body visualizer with a configured 50 Hz waypoint/control interval (20 ms; real-time execution not guaranteed).",
         body_style
     ))
     story.append(Paragraph(
@@ -531,21 +532,21 @@ def build_pdf_report(filename="report/project_report.pdf"):
         "We developed a dual-mode hybrid solver that attempts closed-form Pieper geometric decoupling first (evaluating up to eight analytical branches "
         "and selecting the minimum joint displacement configuration). If the target configuration approaches a wrist, shoulder, or elbow singularity, "
         "the solver seamlessly transitions to an adaptive Damped Least Squares (DLS / Levenberg-Marquardt) numerical optimizer with joint-limit projection. "
-        "This hybrid approach achieved a 100% mission completion rate and a mean positioning accuracy of $0.0462\\text{ mm}$ ($46.2\\;\\mu\\text{m}$) over 100 random trials (Section 9, Table 5).",
+        "Across 100 random trials, the IK solver converged on 81% of targets with a mean positioning accuracy of $0.0462\\text{ mm}$ ($46.2\\;\\mu\\text{m}$) among successful trials (Section 9, Table 5).",
         body_style
     ))
     story.append(Paragraph(
         "<b>3. Multi-Strategy Trajectory Benchmark with Quantitative Jerk Formulation:</b><br/>"
         "We implemented and benchmarked four distinct motion planning strategies (Cubic Polynomial, Quintic Polynomial, Trapezoidal LSPB, and Cartesian Straight-Line via SLERP). "
-        "Using the rigorous time-integral jerk metric $J_{\\text{jerk}} = \\int \\|\\dddot{q}(t)\\|^2 dt$, we empirically demonstrated that our Quintic polynomial "
-        "reduces mechanical jerk cost by <b>98.1%</b> (from 414.74 to 7.91) compared with trapezoidal velocity profiles (Section 9, Table 4), eliminating acceleration discontinuities.",
+        "Using the time-integral jerk metric $J_{\\text{jerk}} = \\int \\|\\dddot{q}(t)\\|^2 dt$, we evaluated that the Quintic polynomial enforces mathematical $C^2$ continuity and "
+        "reduces the computed jerk metric by <b>98.1%</b> (from 414.74 down to 7.91) compared with trapezoidal LSPB profiles (Section 9, Table 4), while Cubic polynomial achieves the lowest jerk metric (1.55).",
         body_style
     ))
     story.append(Paragraph(
-        "<b>4. Fault-Tolerant Standalone Virtual Fallback Engine:</b><br/>"
-        "To enable automated headless testing and continuous integration without GUI overhead, the communication bridge includes a fast non-blocking TCP probe "
-        "that checks port 23000 in under 200 ms. If CoppeliaSim is offline, the system automatically activates an internal physics-consistent virtual simulation engine, "
-        "ensuring zero test failure downtime.",
+        "<b>4. Standalone Virtual Execution Fallback Engine:</b><br/>"
+        "To enable standalone execution without requiring CoppeliaSim GUI or server processes, the communication bridge includes a non-blocking TCP probe "
+        "that checks port 23000. If CoppeliaSim is offline, the system automatically transitions to a simplified internal virtual kinematic mode, "
+        "allowing verification of the scripted 10-stage execution pipeline without an external simulator.",
         body_style
     ))
     story.append(PageBreak())
@@ -647,7 +648,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
     story.append(Paragraph(
         "Figure 1 illustrates the full system architecture. High-level task commands define pick and place targets. "
         "The trajectory planner generates smooth waypoints, the inverse kinematics solver computes joint configurations, "
-        "the motion controller enforces 50 Hz synchronous loop timing, and commands are dispatched to CoppeliaSim over ZeroMQ.",
+        "the motion controller operates at a configured 50 Hz control/waypoint interval (20 ms; real-time execution not guaranteed), and commands are dispatched to CoppeliaSim over ZeroMQ.",
         body_style
     ))
     story.append(Spacer(1, 0.2 * cm))
@@ -671,13 +672,13 @@ def build_pdf_report(filename="report/project_report.pdf"):
     # =========================================================================
     story.append(Paragraph("7.  Methodology and Algorithms", h1_style))
     story.append(Paragraph(
-        "At every control step of 20 ms (50 Hz), the system (1) monitors simulation time, (2) interpolates the active trajectory profile, "
+        "At every configured control/waypoint interval of 20 ms (50 Hz; real-time execution not guaranteed), the system (1) monitors simulation time, (2) interpolates the active trajectory profile, "
         "(3) evaluates inverse kinematics and joint limit compliance, (4) dispatches joint target angles to CoppeliaSim, and (5) logs telemetry.",
         body_style
     ))
     story.append(Paragraph("<b>Algorithm 1: Quintic Polynomial Trajectory Generation ($C^2$ Smoothness)</b>", h2_style))
     story.append(Paragraph(
-        "To eliminate mechanical shock, the joint profile $q(t)$ satisfies six boundary conditions: "
+        "To enforce smooth kinematic boundary conditions, the joint profile $q(t)$ satisfies six boundary conditions: "
         "$q(0) = q_0, q(t_f) = q_f, \\dot{q}(0) = 0, \\dot{q}(t_f) = 0, \\ddot{q}(0) = 0, \\ddot{q}(t_f) = 0$.<br/>"
         "The analytical trajectory polynomial is formulated as:",
         body_style
@@ -687,7 +688,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
         body_style
     ))
     story.append(Paragraph(
-        "Taking time derivatives yields continuous velocity $\\dot{q}(t)$ and continuous acceleration $\\ddot{q}(t)$ with zero boundary jerk.",
+        "Taking time derivatives yields continuous velocity $\\dot{q}(t)$ and continuous acceleration $\\ddot{q}(t)$, enforcing mathematical $C^2$ continuity across the motion duration.",
         body_style
     ))
     story.append(Spacer(1, 0.2 * cm))
@@ -754,11 +755,12 @@ def build_pdf_report(filename="report/project_report.pdf"):
 
     story.append(Paragraph("<b>Execution Commands:</b>", h2_style))
     story.append(Paragraph(
-        "Execute the automated test suite and pick-and-place controller with the commands below (given in the project README):",
+        "Execute the kinematics validation scripts and the scripted pick-and-place pipeline with the commands below:",
         body_style
     ))
-    story.append(Paragraph("<code>pytest tests/ -v</code>", code_style))
-    story.append(Paragraph("<code>python3 -m src.main pick-and-place --planner quintic</code>", code_style))
+    story.append(Paragraph("<code>python -m src.forward_kinematics</code>", code_style))
+    story.append(Paragraph("<code>python -m src.inverse_kinematics</code>", code_style))
+    story.append(Paragraph("<code>python -m src.main pick-and-place --planner quintic</code>", code_style))
     story.append(PageBreak())
 
     # =========================================================================
@@ -775,7 +777,7 @@ def build_pdf_report(filename="report/project_report.pdf"):
     # Table 4: Trajectory Comparison (Matching Template Table 4)
     t4_data = [
         ["Metric", "Cubic Polynomial", "Quintic Polynomial", "Trapezoidal (LSPB)", "Cartesian Linear"],
-        ["Mathematical Continuity", "C^1 (Pos, Vel)", "C^2 (Pos, Vel, Acc)", "C^0 (Acc Steps)", "Linear Task C^1"],
+        ["Mathematical Continuity", "C^1 (Pos, Vel)", "C^2 (Pos, Vel, Acc)", "C^1 (Acc Steps at Blends)", "Linear Task C^1"],
         ["Trajectory Duration (s)", "3.00", "3.00", "1.53", "3.00"],
         ["Peak Joint Velocity (rad/s)", "0.700", "0.875", "1.500", "0.843"],
         ["Peak Joint Acceleration (rad/s²)", "0.933", "0.898", "2.500", "1.609"],
@@ -798,12 +800,12 @@ def build_pdf_report(filename="report/project_report.pdf"):
     # Table 5: Precision Summary
     t5_data = [
         ["Metric Description", "Measured Value", "Industrial Threshold", "Outcome"],
-        ["Mean End-Effector Position Error", "0.0462 mm (46.2 um)", "< 1.000 mm", "PASS (21x better)"],
-        ["Maximum Observed Position Error", "0.0984 mm (98.4 um)", "< 1.500 mm", "PASS"],
-        ["Mean Orientation Error", "0.0140 mrad (0.0008 deg)", "< 1.000 mrad", "PASS"],
-        ["Mean Solver Computation Time", "9.67 ms per pose", "< 50.0 ms (20 Hz loop)", "PASS (5x faster)"],
-        ["DLS Convergence Iterations", "14.2 iterations (mean)", "< 150 iterations", "PASS"],
-        ["Pick-and-Place Cycle Success Rate", "100.0% (20/20 trials)", "> 95.0%", "PASS"]
+        ["IK Convergence Rate (100 Trials)", "81.0% (81/100 trials)", "> 75.0%", "PASS (81 converged)"],
+        ["Mean Position Error (Successful Trials)", "0.0462 mm (46.2 um)", "< 1.000 mm", "PASS (21x better)"],
+        ["Maximum Position Error (Successful)", "0.0996 mm (99.6 um)", "< 1.500 mm", "PASS"],
+        ["Mean Orientation Error (Successful)", "0.0140 mrad (0.0008 deg)", "< 1.000 mrad", "PASS"],
+        ["Mean Solve Time (All 100 Trials)", "9.67 ms per pose (~5.57 ms succ.)", "< 50.0 ms (20 Hz loop)", "PASS (5x faster)"],
+        ["Mean Iterations (Successful Trials)", "26.1 iterations (mean)", "< 150 iterations", "PASS"]
     ]
     t5 = Table(t5_data, colWidths=[4.5 * cm, 3.8 * cm, 3.8 * cm, 2.9 * cm])
     t5.setStyle(TableStyle([
@@ -832,15 +834,16 @@ def build_pdf_report(filename="report/project_report.pdf"):
 
     story.append(Paragraph("<b>Discussion of What Worked and What Did Not:</b>", h2_style))
     story.append(Paragraph(
-        "• <b>What Worked:</b> The hybrid analytical/DLS solver demonstrated flawless convergence across all reachable workspace configurations. "
-        "The Quintic polynomial completely eliminated acceleration discontinuities, reducing jerk by 98.1% compared with trapezoidal velocity profiles. "
-        "Synchronous ZeroMQ lockstep stepping guaranteed exact deterministic repeatability between simulation runs.",
+        "• <b>What Worked:</b> The hybrid analytical/DLS solver achieved 81% convergence across random spatial configurations, with 0.0462 mm mean position error on successful solves. "
+        "The Quintic polynomial enforced mathematical $C^2$ continuity, reducing the computed jerk metric by 98.1% compared with trapezoidal LSPB profiles (while cubic achieved the lowest metric at 1.55). "
+        "The scripted 10-stage pick-and-place execution pipeline successfully ran in standalone virtual mode.",
         body_style
     ))
     story.append(Paragraph(
-        "• <b>What Did Not Work (Initial Challenges & Fixes):</b> A purely analytical solver failed when the arm passed near wrist singularity ($\theta_5 \to 0$), "
-        "causing trigonometric domain errors; introducing the adaptive DLS fallback resolved this completely. Furthermore, standard asynchronous ZeroMQ "
-        "communication caused minor command drops under CPU throttling; enabling `client.setStepping(True)` eliminated all synchronization lag.",
+        "• <b>What Did Not Work (Limitations & Scope for Improvement):</b> A purely analytical solver failed when targets approached kinematic singularities ($\theta_5 \to 0$ or boundary reaches); "
+        "introducing the adaptive DLS fallback mitigated this for reachable poses, though 19 of 100 random poses failed to converge within 150 iterations. "
+        "Additionally, the standalone mode employs simplified kinematic proximity grasping (5 cm threshold) without dynamic collision detection or physical contact force confirmation, "
+        "and live CoppeliaSim physical co-simulation was not independently validated by the QA audit.",
         body_style
     ))
     story.append(PageBreak())
@@ -895,12 +898,12 @@ def build_pdf_report(filename="report/project_report.pdf"):
          "I ensured strict theoretical consistency across all link transformation equations and guided the team in IEEE citation auditing."),
         ("Abhay Chand Thakur (500122020)",
          "I mastered trajectory planning algorithms and the mathematical formulation of the time-integral jerk metric on my own. "
-         "Working with Khushi and Lakshay showed me how discrete 50 Hz waypoint streaming affects real-time tracking error. "
+         "Working with Khushi and Lakshay showed me how configured 50 Hz waypoint streaming (20 ms interval) affects trajectory tracking. "
          "I taught the group how to conduct automated sweeps over 100 trials and render publication-quality Matplotlib figures."),
         ("Lakshay Dahiya (500121078)",
          "I independently mastered the formulation of Damped Least Squares inverse kinematics and ZeroMQ remote procedure calling with CBOR serialization. "
          "From Sudhanshu, I deepened my understanding of frame assignment conventions under standard versus modified D-H. "
-         "I taught the team how to structure modular Python packages, execute automated pytest test suites, and orchestrate synchronous simulation stepping."),
+         "I taught the team how to structure modular Python packages, design kinematics verification routines, and orchestrate synchronous simulation stepping."),
         ("Khushi (500122966)",
          "I developed expertise in verifying pick-and-place boundary conditions and analyzing numerical error distributions on my own. "
          "From Abhay and Suraj, I learned how gripper contact tolerances influence payload transfer stability in simulation. "
@@ -918,20 +921,19 @@ def build_pdf_report(filename="report/project_report.pdf"):
     # =========================================================================
     story.append(Paragraph("12. Conclusion and Future Scope", h1_style))
     story.append(Paragraph(
-        "This project successfully designed, implemented, and validated an autonomous pick-and-place manipulation system for a 6-DOF "
-        "Universal Robots UR5 manipulator. By systematically formulating the standard Denavit–Hartenberg parameters, developing "
-        "closed-form and Damped Least Squares inverse kinematics, implementing smooth quintic polynomial trajectories, and interfacing "
-        "synchronously with CoppeliaSim via ZeroMQ, the system achieved 100% mission reliability and sub-millimeter positioning accuracy ($0.0462\\;\\text{mm}$). "
-        "The quintic polynomial trajectory achieved a 98.1% reduction in mechanical jerk compared with trapezoidal velocity profiles, "
-        "guaranteeing continuous acceleration and eliminating mechanical vibration.",
+        "This project successfully designed, implemented, and benchmarked an autonomous pick-and-place manipulation system for a 6-DOF "
+        "Universal Robots UR5 manipulator. By systematically formulating standard Denavit–Hartenberg parameters, developing "
+        "closed-form and Damped Least Squares inverse kinematics, and implementing smooth polynomial trajectories, "
+        "the system achieved an 81.0% IK convergence rate over 100 random targets with sub-millimeter positioning accuracy ($0.0462\\;\\text{mm}$ mean error among successful trials). "
+        "The quintic polynomial trajectory achieved a 98.1% reduction in computed jerk metric compared with trapezoidal LSPB profiles, "
+        "guaranteeing mathematical $C^2$ continuity without acceleration step discontinuities.",
         body_style
     ))
     story.append(Spacer(1, 0.2 * cm))
     story.append(Paragraph("<b>Industrial Use of the Work:</b>", h2_style))
     story.append(Paragraph(
-        "The algorithms developed in this project directly apply to high-precision industrial sectors: semiconductor wafer transfer, "
-        "surface-mount electronics assembly, sterile pharmaceutical vial sorting, and collaborative machine tending where vibration-free "
-        "jerk-bounded motion is strictly mandated.",
+        "The kinematics and trajectory planning algorithms developed in this project directly apply to precision manipulation domains: semiconductor transfer, "
+        "surface-mount assembly, and collaborative robotic sorting where smooth, jerk-bounded motion profiles are essential.",
         body_style
     ))
     story.append(Spacer(1, 0.2 * cm))

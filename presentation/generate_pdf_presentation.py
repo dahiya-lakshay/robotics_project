@@ -196,8 +196,8 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     story.append(Paragraph("1.  <b>D-H Mathematical Modeling:</b> Establish standard Denavit-Hartenberg parameter table for the Universal Robots UR5.", slide_bullet_style))
     story.append(Paragraph("2.  <b>Pure-Python Kinematics:</b> Implement forward kinematics and inverse kinematics achieving sub-millimeter precision.", slide_bullet_style))
     story.append(Paragraph("3.  <b>Jerk-Minimized Trajectories:</b> Implement quintic polynomial trajectories to eliminate acceleration steps.", slide_bullet_style))
-    story.append(Paragraph("4.  <b>Synchronous Co-Simulation:</b> Establish 50 Hz lockstep control in CoppeliaSim using the ZeroMQ Remote API.", slide_bullet_style))
-    story.append(Paragraph("5.  <b>High Reliability:</b> Complete the automated 10-stage pick-and-place sequence with 100% success rate.", slide_bullet_style))
+    story.append(Paragraph("4.  <b>Waypoint Dispatch:</b> Establish configured 50 Hz waypoint/control interval (20 ms) in CoppeliaSim using ZeroMQ Remote API (real-time wall-clock execution is not guaranteed).", slide_bullet_style))
+    story.append(Paragraph("5.  <b>Sequential Manipulation Pipeline:</b> Implement a scripted 10-stage pick-and-place execution pipeline with trajectory waypoint generation and gripper sequencing.", slide_bullet_style))
     story.append(PageBreak())
 
     # =========================================================================
@@ -205,7 +205,7 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     # =========================================================================
     story.append(Paragraph("Existing Solutions & The Technical Gap", slide_title_style))
     story.append(Paragraph("• <b>Simulator Black Boxes:</b> Most student setups rely on CoppeliaSim's built-in IK plugin, hiding the actual D-H matrix math.", slide_bullet_style))
-    story.append(Paragraph("• <b>Trapezoidal Discontinuity:</b> Standard trapezoidal velocity profiles have acceleration steps, causing high mechanical jerk.", slide_bullet_style))
+    story.append(Paragraph("• <b>Trapezoidal Discontinuity:</b> Trapezoidal LSPB maintains C^1 continuity (pos, vel) but has step discontinuities in acceleration at blending boundaries, producing high computed jerk.", slide_bullet_style))
     story.append(Paragraph("• <b>Singularity Vulnerability:</b> Simple pseudoinverse solvers diverge near wrist and shoulder singularities.", slide_bullet_style))
     story.append(Spacer(1, 8))
 
@@ -213,7 +213,7 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
         ["Approach", "Core Strength", "Critical Limitation"],
         ["Pure Analytical IK", "Fast closed-form solve", "Diverges near singular points"],
         ["Pure Numerical IK", "General geometry support", "Sensitive to seed; slow convergence"],
-        ["Trapezoidal Profiles", "Computationally simple", "Acceleration steps cause high jerk"],
+        ["Trapezoidal Profiles (C^1)", "Computationally simple", "Acceleration steps at blends cause high jerk"],
         ["Our Hybrid D-H System", "Singularity-robust & sub-50 um", "Requires dynamic damping tuning"]
     ]
     t4_deck = Table(tbl_s4, colWidths=[200, 230, 280])
@@ -235,7 +235,7 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     story.append(Paragraph("Project Novelty (Mandatory Contributions)", slide_title_style))
     story.append(Paragraph("1.  <b>Independent Pure-Python D-H Engine:</b> All homogeneous matrix products, Jacobians, and inverse kinematics execute in Python from first principles.", slide_bullet_style))
     story.append(Paragraph("2.  <b>Hybrid Analytical and DLS Solver:</b> Closed-form Pieper decoupling combined with adaptive Damped Least Squares eliminates singularity blowups.", slide_bullet_style))
-    story.append(Paragraph("3.  <b>98.1% Mechanical Jerk Reduction:</b> Quintic polynomial trajectory cuts jerk cost from 414.7 down to 7.9 compared to trapezoidal motion.", slide_bullet_style))
+    story.append(Paragraph("3.  <b>98.1% Computed Jerk Metric Reduction:</b> Quintic polynomial trajectory cuts computed jerk metric from 414.7 down to 7.9 compared to trapezoidal LSPB motion.", slide_bullet_style))
     story.append(Paragraph("4.  <b>Zero-Downtime Virtual Fallback:</b> Fast TCP probe automatically enables high-fidelity virtual simulation if CoppeliaSim GUI is offline.", slide_bullet_style))
     story.append(PageBreak())
 
@@ -273,7 +273,7 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
         story.append(Image(fig0_file, width=680, height=210))
         story.append(Spacer(1, 10))
 
-    story.append(Paragraph("• <b>Modular Flow:</b> Task Pose defines target; Planner generates smooth trajectory; IK resolves joint angles; Controller streams waypoints at 50 Hz.", slide_bullet_style))
+    story.append(Paragraph("• <b>Modular Flow:</b> Task Pose defines target; Planner generates smooth trajectory; IK resolves joint angles; Controller dispatches waypoints at configured 50 Hz interval (20 ms; real-time execution not guaranteed).", slide_bullet_style))
     story.append(Paragraph("• <b>Synchronous Lockstep:</b> Simulation clock advances only when commanded, guaranteeing repeatable physics execution.", slide_bullet_style))
     story.append(PageBreak())
 
@@ -319,20 +319,20 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     story.append(Paragraph("Algorithm 2: Inverse Kinematics & Trajectory Planning", slide_title_style))
     story.append(Paragraph("• <b>Analytical Decoupling (Pieper):</b> Spherical wrist allows position (joints 1-3) and orientation (joints 4-6) to be solved independently.", slide_bullet_style))
     story.append(Paragraph("• <b>Damped Least Squares (DLS):</b> Delta_q = J^T * (J * J^T + lambda^2 * I)^(-1) * error prevents infinite velocities near singularities.", slide_bullet_style))
-    story.append(Paragraph("• <b>Quintic Trajectory Planning:</b> Enforces zero velocity and zero acceleration at start and finish (C^2 continuity).", slide_bullet_style))
-    story.append(Paragraph("• <b>Smoothness Metric:</b> Continuous acceleration eliminates jerk spikes and mechanical vibration.", slide_bullet_style))
+    story.append(Paragraph("• <b>Quintic Trajectory Planning:</b> Enforces zero boundary velocity and acceleration, guaranteeing mathematical C^2 continuity.", slide_bullet_style))
+    story.append(Paragraph("• <b>Smoothness Metric:</b> Continuous acceleration avoids analytical step discontinuities, reducing computed jerk metrics.", slide_bullet_style))
     story.append(PageBreak())
 
     # =========================================================================
     # SLIDE 11: Simulation Setup (Presenter: M4 - Lakshay Dahiya)
     # =========================================================================
     story.append(Paragraph("Simulation Setup & ZeroMQ Interface", slide_title_style))
-    story.append(Paragraph("• <b>Simulator Platform:</b> CoppeliaSim Edu V4.3+ with Bullet 2.83 physics engine.", slide_bullet_style))
-    story.append(Paragraph("• <b>ZeroMQ Remote API:</b> High-speed binary communication on port 23000 using CBOR serialization.", slide_bullet_style))
-    story.append(Paragraph("• <b>Synchronous Stepping:</b> client.setStepping(True) locks physics to exact 50 ms time steps.", slide_bullet_style))
-    story.append(Paragraph("• <b>Automated Testing Commands:</b>", slide_bullet_style))
-    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;<b>pytest tests/ -v</b>&nbsp;&nbsp;(Passes all 11 mathematical unit tests in 0.15s)", col_body_style))
-    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;<b>python3 -m src.main pick-and-place --planner quintic</b>", col_body_style))
+    story.append(Paragraph("• <b>Simulator Platform:</b> CoppeliaSim Edu V4.3+ interface via ZeroMQ Remote API (port 23000, CBOR serialization).", slide_bullet_style))
+    story.append(Paragraph("• <b>Waypoint Rate:</b> Configured 50 Hz waypoint/control interval (20 ms); real-time wall-clock execution is not guaranteed; includes virtual kinematic fallback mode.", slide_bullet_style))
+    story.append(Paragraph("• <b>Execution & Kinematics Validation Commands:</b>", slide_bullet_style))
+    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;<b>python -m src.forward_kinematics</b>", col_body_style))
+    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;<b>python -m src.inverse_kinematics</b>", col_body_style))
+    story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;<b>python -m src.main pick-and-place --planner quintic</b>", col_body_style))
     story.append(PageBreak())
 
     # =========================================================================
@@ -344,13 +344,13 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     col_s12 = [
         [
             Image(fig3_file, width=330, height=270) if os.path.exists(fig3_file) else Paragraph("Diagram", slide_body_style),
-            Paragraph("<b>10-Stage State Machine Flow:</b><br/>"
+            Paragraph("<b>Scripted 10-Stage Execution Pipeline:</b><br/>"
                       "1-2. Init & Home Stance<br/>"
                       "3-4. Locate Target & Approach (+12 cm)<br/>"
-                      "5-6. Controlled Descent & Grasp Object<br/>"
+                      "5-6. Controlled Descent & Virtual Grasp<br/>"
                       "7-8. Clearance Ascent & Transfer<br/>"
                       "9-10. Place at Target & Return Home<br/><br/>"
-                      "<b>[Switch to running simulation demonstration]</b>", col_body_style)
+                      "<b>[Switch to running standalone / simulation demonstration]</b>", col_body_style)
         ]
     ]
     t_s12 = Table(col_s12, colWidths=[340, 370])
@@ -367,13 +367,12 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     col_s13 = [
         [
             Image(fig4_file, width=330, height=230) if os.path.exists(fig4_file) else Paragraph("Diagram", slide_body_style),
-            Paragraph("<b>Validation over 100 Random Trials:</b><br/>"
-                      "• <b>Mean Position Error:</b> 0.0462 mm (46.2 um)<br/>"
-                      "  (21x better than industrial 1 mm limit)<br/><br/>"
-                      "• <b>Mean Orientation Error:</b> 0.014 mrad (0.0008 deg)<br/><br/>"
-                      "• <b>Average Solve Time:</b> 9.67 ms per pose<br/><br/>"
-                      "• <b>Mean Iterations to Converge:</b> 14.2 iterations<br/><br/>"
-                      "• <b>Pick-and-Place Reliability:</b> 100% (20/20 runs)", col_body_style)
+            Paragraph("<b>Validation over 100 Random IK Trials:</b><br/>"
+                      "• <b>IK Convergence Rate:</b> 81.0% (81/100 trials)<br/><br/>"
+                      "• <b>Mean Position Error (Successful):</b> 0.0462 mm (max: 0.0996 mm)<br/><br/>"
+                      "• <b>Mean Orientation Error (Successful):</b> 0.0140 mrad<br/><br/>"
+                      "• <b>Mean Solve Time:</b> 9.67 ms (all 100) / ~5.57 ms (successful)<br/><br/>"
+                      "• <b>Mean Iterations (Successful):</b> ~26.1 iterations", col_body_style)
         ]
     ]
     t_s13 = Table(col_s13, colWidths=[340, 370])
@@ -390,11 +389,11 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     col_s14 = [
         [
             Image(fig5_file, width=330, height=220) if os.path.exists(fig5_file) else Paragraph("Diagram", slide_body_style),
-            Paragraph("<b>Comparative Analysis:</b><br/>"
-                      "• <b>Trapezoidal LSPB:</b> Fast (1.53 s), but acceleration steps cause extreme Jerk Cost = <b>414.74</b>.<br/><br/>"
-                      "• <b>Cubic Polynomial:</b> C^1 continuous; Jerk Cost = <b>1.55</b>.<br/><br/>"
-                      "• <b>Quintic Polynomial:</b> C^2 continuous with zero boundary jerk; Jerk Cost = <b>7.91</b>.<br/><br/>"
-                      "• <b>Key Result:</b> Quintic trajectory achieves <b>98.1% jerk reduction</b> compared to trapezoidal motion.", col_body_style)
+            Paragraph("<b>Comparative Trajectory Benchmark:</b><br/>"
+                      "• <b>Trapezoidal LSPB:</b> C^1 continuous (duration 1.53 s); acceleration step discontinuities at blends yield Computed Jerk Metric = <b>414.74</b>.<br/><br/>"
+                      "• <b>Cubic Polynomial:</b> C^1 continuous; lowest Computed Jerk Metric = <b>1.55</b>.<br/><br/>"
+                      "• <b>Quintic Polynomial:</b> Mathematical C^2 continuity (pos, vel, acc); Computed Jerk Metric = <b>7.91</b>.<br/><br/>"
+                      "• <b>Key Result:</b> Quintic profile achieves a <b>98.1% reduction in computed jerk metric</b> compared with trapezoidal LSPB.", col_body_style)
         ]
     ]
     t_s14 = Table(col_s14, colWidths=[340, 370])
@@ -431,10 +430,10 @@ def build_presentation(filename="presentation/project_presentation.pdf"):
     # SLIDE 16: Conclusion and Industry Use (Presenter: All Team Members)
     # =========================================================================
     story.append(Paragraph("Conclusion & Industrial Deployment", slide_title_style))
-    story.append(Paragraph("• <b>Technical Achievements:</b> Implemented a pure-Python 6-DOF kinematics pipeline achieving sub-50 micrometer positioning precision and 100% pick-and-place success.", slide_bullet_style))
-    story.append(Paragraph("• <b>Jerk Minimization:</b> Quintic polynomial motion eliminates structural resonance, protecting physical gearboxes.", slide_bullet_style))
-    story.append(Paragraph("• <b>Industrial Relevance:</b> Directly applicable to semiconductor packaging, electronics assembly, and sterile pharmaceutical sorting.", slide_bullet_style))
-    story.append(Paragraph("• <b>Future Scope:</b> Add RGB-D camera for dynamic visual servoing and deploy on physical UR5 hardware via ROS 2.", slide_bullet_style))
+    story.append(Paragraph("• <b>Technical Achievements:</b> Implemented a pure-Python 6-DOF kinematics pipeline achieving 0.0462 mm mean position error across successful IK trials and scripted 10-stage execution.", slide_bullet_style))
+    story.append(Paragraph("• <b>Trajectory Formulation:</b> Quintic polynomial trajectory ensures mathematical C^2 continuity, cutting computed jerk metric by 98.1% compared with trapezoidal LSPB.", slide_bullet_style))
+    story.append(Paragraph("• <b>Industrial Relevance:</b> Kinematic modeling and smooth trajectory planning methods relevant to assembly and material transfer workflows.", slide_bullet_style))
+    story.append(Paragraph("• <b>Future Scope:</b> Add closed-loop vision/force feedback, collision detection, and physical hardware deployment via ROS 2.", slide_bullet_style))
     story.append(PageBreak())
 
     # =========================================================================
